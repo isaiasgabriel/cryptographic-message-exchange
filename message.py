@@ -28,8 +28,9 @@ class CertificateAuthority:
         )
         self.chave_publica = self.chave_privada.public_key()
         print(f"{Fore.GREEN}✅ Par de chaves RSA da CA gerado com sucesso!")
-        
-        # Exibir chaves 
+    
+    def exibir_chaves(self):
+        """Exibe as chaves da CA em formato PEM"""
         print(f"\n{Fore.CYAN}🔑 Chave Privada da CA (PEM):")
         chave_privada_pem = self.chave_privada.private_bytes(
             encoding=serialization.Encoding.PEM,
@@ -91,8 +92,6 @@ class CertificateAuthority:
 
 
 class User:
-    """Usuário do sistema de comunicação segura"""
-    
     def __init__(self, nome, ca):
         self.nome = nome
         self.ca = ca
@@ -109,10 +108,14 @@ class User:
             backend=default_backend()
         )
         self.chave_publica = self.chave_privada.public_key()
-        print(f"{Fore.GREEN}✅ Par de chaves gerado!")
+        print(f"{Fore.GREEN}✅ Par de chaves RSA geradas!")
         
-        # Exibir chaves 
-        print(f"\n{Fore.CYAN}🔑 Chave Privada de {nome} (PEM):")
+        # Solicita certificado à CA
+        self.certificado = ca.emitir_certificado(nome, self.chave_publica)
+    
+    def exibir_chaves(self):
+        """Exibe as chaves do usuário em formato PEM"""
+        print(f"\n{Fore.CYAN}🔑 Chave Privada de {self.nome} (PEM):")
         chave_privada_pem = self.chave_privada.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
@@ -120,15 +123,12 @@ class User:
         )
         print(f"{Fore.WHITE}{chave_privada_pem.decode()}")
         
-        print(f"{Fore.CYAN}🔓 Chave Pública de {nome} (PEM):")
+        print(f"{Fore.CYAN}🔓 Chave Pública de {self.nome} (PEM):")
         chave_publica_pem = self.chave_publica.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         )
         print(f"{Fore.WHITE}{chave_publica_pem.decode()}")
-        
-        # Solicita certificado à CA
-        self.certificado = ca.emitir_certificado(nome, self.chave_publica)
         
     def calcular_hash(self, mensagem):
         """Calcula o hash SHA-256 de uma mensagem"""
@@ -257,9 +257,23 @@ class User:
         print(f"{Fore.YELLOW}📥 FASE 2: {self.nome.upper()} RECEBE MENSAGEM")
         print(f"{Fore.YELLOW}{'='*70}")
         
-        # 1. Verificar certificado do remetente
-        print(f"\n{Fore.CYAN}🔍 Passo 1: Verificando certificado do remetente...")
+        # ============================================================
+        # PASSO 1: Verificar Certificado do Remetente
+        # ============================================================
+        print(f"\n{Fore.CYAN}{'─'*70}")
+        print(f"{Fore.CYAN}🔍 PASSO 1: VERIFICANDO CERTIFICADO DO REMETENTE")
+        print(f"{Fore.CYAN}{'─'*70}")
+        
         certificado_remetente = pacote['certificado_remetente']
+        
+        print(f"{Fore.WHITE}📋 O que {self.nome} está fazendo:")
+        print(f"{Fore.WHITE}   1. Pega o certificado do pacote recebido")
+        print(f"{Fore.WHITE}   2. Usa a chave PÚBLICA da CA para verificar assinatura")
+        print(f"{Fore.WHITE}   3. Se válido → certificado foi emitido pela CA confiável")
+        
+        print(f"\n{Fore.MAGENTA}🔬 Demonstração Técnica:")
+        print(f"{Fore.WHITE}   Algoritmo: RSA (verificação de assinatura)")
+        print(f"{Fore.WHITE}   Usando: Chave Pública da CA")
         
         if not self.ca.verificar_certificado(certificado_remetente):
             print(f"{Fore.RED}❌ ERRO: Certificado do remetente inválido!")
@@ -267,11 +281,31 @@ class User:
         
         # Extrai o nome do remetente do certificado
         nome_remetente = certificado_remetente.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
-        print(f"{Fore.GREEN}✅ Certificado de {nome_remetente} verificado!")
+        print(f"\n{Fore.GREEN}✅ Certificado VÁLIDO!")
+        print(f"{Fore.GREEN}   → Remetente identificado: {nome_remetente}")
+        print(f"{Fore.GREEN}   → Certificado foi assinado pela CA")
+        print(f"{Fore.GREEN}   → Podemos confiar na chave pública de {nome_remetente}")
+        
         chave_publica_remetente = certificado_remetente.public_key()
         
-        # 2. Descriptografar chave de sessão
-        print(f"\n{Fore.CYAN}🔓 Passo 2: Descriptografando chave de sessão com chave privada de {self.nome}...")
+        # ============================================================
+        # PASSO 2: Descriptografar Chave de Sessão AES
+        # ============================================================
+        print(f"\n{Fore.CYAN}{'─'*70}")
+        print(f"{Fore.CYAN}🔓 PASSO 2: DESCRIPTOGRAFANDO CHAVE DE SESSÃO AES")
+        print(f"{Fore.CYAN}{'─'*70}")
+        
+        print(f"{Fore.WHITE}📋 O que {self.nome} está fazendo:")
+        print(f"{Fore.WHITE}   1. Pega chave AES criptografada do pacote")
+        print(f"{Fore.WHITE}   2. Usa sua chave PRIVADA RSA para descriptografar")
+        print(f"{Fore.WHITE}   3. Recupera a chave AES original")
+        
+        print(f"\n{Fore.MAGENTA}🔬 Demonstração Técnica:")
+        print(f"{Fore.WHITE}   Algoritmo: RSA-OAEP")
+        print(f"{Fore.WHITE}   Chave criptografada (256 bytes):")
+        print(f"{Fore.WHITE}   {pacote['chave_sessao_criptografada'].hex()[:60]}...")
+        print(f"{Fore.WHITE}   Usando: Chave PRIVADA de {self.nome} (só {self.nome} tem!)")
+        
         chave_sessao = self.chave_privada.decrypt(
             pacote['chave_sessao_criptografada'],
             padding.OAEP(
@@ -280,10 +314,31 @@ class User:
                 label=None
             )
         )
-        print(f"{Fore.GREEN}✅ Chave de sessão recuperada: {chave_sessao.hex()[:40]}...")
         
-        # 3. Descriptografar mensagem
-        print(f"\n{Fore.CYAN}🔓 Passo 3: Descriptografando mensagem com AES...")
+        print(f"\n{Fore.GREEN}✅ Chave AES RECUPERADA!")
+        print(f"{Fore.GREEN}   → Tamanho: {len(chave_sessao)} bytes (256 bits)")
+        print(f"{Fore.GREEN}   → Chave: {chave_sessao.hex()[:40]}...")
+        print(f"{Fore.GREEN}   → Agora {self.nome} pode descriptografar a mensagem!")
+        
+        # ============================================================
+        # PASSO 3: Descriptografar Mensagem com AES
+        # ============================================================
+        print(f"\n{Fore.CYAN}{'─'*70}")
+        print(f"{Fore.CYAN}🔓 PASSO 3: DESCRIPTOGRAFANDO MENSAGEM COM AES")
+        print(f"{Fore.CYAN}{'─'*70}")
+        
+        print(f"{Fore.WHITE}📋 O que {self.nome} está fazendo:")
+        print(f"{Fore.WHITE}   1. Usa a chave AES recuperada no passo 2")
+        print(f"{Fore.WHITE}   2. Usa o IV (Vetor de Inicialização) do pacote")
+        print(f"{Fore.WHITE}   3. Descriptografa a mensagem com AES-CBC")
+        print(f"{Fore.WHITE}   4. Remove o padding")
+        
+        print(f"\n{Fore.MAGENTA}🔬 Demonstração Técnica:")
+        print(f"{Fore.WHITE}   Algoritmo: AES-256-CBC")
+        print(f"{Fore.WHITE}   Mensagem criptografada: {pacote['mensagem_criptografada'].hex()[:40]}...")
+        print(f"{Fore.WHITE}   IV: {pacote['iv'].hex()}")
+        print(f"{Fore.WHITE}   Chave AES: {chave_sessao.hex()[:40]}...")
+        
         cipher = Cipher(
             algorithms.AES(chave_sessao),
             modes.CBC(pacote['iv']),
@@ -296,18 +351,44 @@ class User:
         padding_length = mensagem_padded[-1]
         mensagem_descriptografada = mensagem_padded[:-padding_length].decode()
         
-        print(f"{Fore.GREEN}✅ Mensagem descriptografada: \"{mensagem_descriptografada}\"")
+        print(f"\n{Fore.GREEN}✅ Mensagem DESCRIPTOGRAFADA!")
+        print(f"{Fore.GREEN}   → Mensagem original: \"{mensagem_descriptografada}\"")
+        print(f"{Fore.GREEN}   → Mas espere! Ainda precisa verificar autenticidade...")
         
-        # 4. Verificar integridade e autenticidade
-        print(f"\n{Fore.CYAN}🔍 Passo 4: Verificando integridade e autenticidade...")
+        # ============================================================
+        # PASSO 4: Verificar Integridade e Autenticidade
+        # ============================================================
+        print(f"\n{Fore.CYAN}{'─'*70}")
+        print(f"{Fore.CYAN}🔍 PASSO 4: VERIFICANDO INTEGRIDADE E AUTENTICIDADE")
+        print(f"{Fore.CYAN}{'─'*70}")
         
-        # Calcular hash local
-        print(f"{Fore.CYAN}   # Calculando hash local da mensagem...")
+        print(f"{Fore.WHITE}📋 O que {self.nome} está fazendo:")
+        print(f"{Fore.WHITE}   1. Calcula hash SHA-256 da mensagem descriptografada")
+        print(f"{Fore.WHITE}   2. Pega a assinatura do pacote (criada por {nome_remetente})")
+        print(f"{Fore.WHITE}   3. Usa chave PÚBLICA de {nome_remetente} para verificar")
+        print(f"{Fore.WHITE}   4. Compara hash da assinatura com hash local")
+        
+        # Sub-passo 4.1: Calcular hash local
+        print(f"\n{Fore.MAGENTA}🔬 Passo 4.1: Calculando Hash Local")
+        print(f"{Fore.WHITE}   Algoritmo: SHA-256")
+        print(f"{Fore.WHITE}   Mensagem: \"{mensagem_descriptografada}\"")
+        
         hash_local = self.calcular_hash(mensagem_descriptografada)
-        print(f"{Fore.WHITE}   Hash local: {hash_local.hex()}")
         
-        # Verificar assinatura
-        print(f"{Fore.CYAN}   🔍 Verificando assinatura de {nome_remetente}...")
+        print(f"{Fore.WHITE}   Hash calculado: {hash_local.hex()}")
+        
+        # Sub-passo 4.2: Verificar assinatura
+        print(f"\n{Fore.MAGENTA}🔬 Passo 4.2: Verificando Assinatura Digital")
+        print(f"{Fore.WHITE}   Algoritmo: RSA-PSS (verificação)")
+        print(f"{Fore.WHITE}   Assinatura recebida: {pacote['assinatura'].hex()[:60]}...")
+        print(f"{Fore.WHITE}   Hash local calculado: {hash_local.hex()}")
+        print(f"{Fore.WHITE}   Usando: Chave PÚBLICA de {nome_remetente}")
+        
+        print(f"\n{Fore.YELLOW}⚙️  Verificando...")
+        print(f"{Fore.WHITE}   → RSA descriptografa a assinatura com chave pública")
+        print(f"{Fore.WHITE}   → Extrai o hash que estava assinado")
+        print(f"{Fore.WHITE}   → Compara com o hash local")
+        
         try:
             chave_publica_remetente.verify(
                 pacote['assinatura'],
@@ -320,12 +401,30 @@ class User:
             )
             
             print(f"\n{Fore.GREEN}{'='*70}")
-            print(f"{Fore.GREEN}✅ VERIFICAÇÃO BEM-SUCEDIDA!")
+            print(f"{Fore.GREEN}✅✅✅ VERIFICAÇÃO BEM-SUCEDIDA! ✅✅✅")
             print(f"{Fore.GREEN}{'='*70}")
-            print(f"{Fore.GREEN}✅ Confidencialidade: Mensagem protegida (AES/RSA)")
-            print(f"{Fore.GREEN}✅ Autenticidade: Mensagem veio de {nome_remetente} (assinatura válida)")
-            print(f"{Fore.GREEN}✅ Integridade: Mensagem não foi alterada (hash corresponde)")
-            print(f"{Fore.WHITE}\n💬 Mensagem final: \"{mensagem_descriptografada}\"")
+            
+            print(f"\n{Fore.YELLOW}🎉 O que foi comprovado:")
+            
+            print(f"\n{Fore.GREEN}1️⃣  Confidencialidade ✅")
+            print(f"{Fore.WHITE}   → Mensagem estava criptografada (AES-256)")
+            print(f"{Fore.WHITE}   → Chave AES protegida com RSA")
+            print(f"{Fore.WHITE}   → Só {self.nome} conseguiu ler (chave privada)")
+            
+            print(f"\n{Fore.GREEN}2️⃣  Autenticidade ✅")
+            print(f"{Fore.WHITE}   → Assinatura digital VÁLIDA")
+            print(f"{Fore.WHITE}   → Mensagem foi enviada por {nome_remetente}")
+            print(f"{Fore.WHITE}   → Impossível falsificar (precisa chave privada de {nome_remetente})")
+            
+            print(f"\n{Fore.GREEN}3️⃣  Integridade ✅")
+            print(f"{Fore.WHITE}   → Hash SHA-256 corresponde")
+            print(f"{Fore.WHITE}   → Mensagem NÃO foi alterada")
+            print(f"{Fore.WHITE}   → Qualquer mudança seria detectada")
+            
+            print(f"\n{Fore.CYAN}{'─'*70}")
+            print(f"{Fore.CYAN}💬 MENSAGEM FINAL VERIFICADA:")
+            print(f"{Fore.WHITE}   \"{mensagem_descriptografada}\"")
+            print(f"{Fore.CYAN}{'─'*70}")
             
             return mensagem_descriptografada
             
@@ -351,10 +450,14 @@ def main():
     
     # Criar Autoridade Certificadora
     ca = CertificateAuthority()
+    ca.exibir_chaves()
     
     # Criar Alice e Bob
     alice = User("Alice", ca)
+    alice.exibir_chaves()
+
     bob = User("Bob", ca)
+    bob.exibir_chaves()
     
     print(f"\n{Fore.GREEN}✅ Fase 0 concluída! Sistema preparado.")
     print(f"{Fore.WHITE}   • CA, Alice e Bob possuem seus pares de chaves RSA")

@@ -7,6 +7,18 @@ Implementação de um sistema de comunicação segura que demonstra:
 - Assinatura digital
 - Certificados digitais
 
+## 📚 Documentação
+
+**🔍 Confuso sobre como os algoritmos funcionam juntos?**
+
+Leia a explicação detalhada: **[EXPLICACAO_FLUXO.md](EXPLICACAO_FLUXO.md)**
+
+Este documento explica:
+- Por que cada algoritmo é usado
+- Como eles trabalham juntos
+- Fluxo completo passo a passo com diagramas
+- Analogias do mundo real
+
 ## Instalação
 
 ```bash
