@@ -153,7 +153,7 @@ PACOTE RECEBIDO
     │
     ▼
 ┌─────────────────────────────────────────┐
-│ PASSO 1: Verificar Certificado         │
+│ PASSO 1: Verificar Certificado          │
 │ • Algoritmo: RSA                        │
 │ • Verifica assinatura da CA             │
 │ • Extrai chave pública de Alice         │

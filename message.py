@@ -400,27 +400,6 @@ class User:
                 hashes.SHA256()
             )
             
-            print(f"\n{Fore.GREEN}{'='*70}")
-            print(f"{Fore.GREEN}✅✅✅ VERIFICAÇÃO BEM-SUCEDIDA! ✅✅✅")
-            print(f"{Fore.GREEN}{'='*70}")
-            
-            print(f"\n{Fore.YELLOW}🎉 O que foi comprovado:")
-            
-            print(f"\n{Fore.GREEN}1️⃣  Confidencialidade ✅")
-            print(f"{Fore.WHITE}   → Mensagem estava criptografada (AES-256)")
-            print(f"{Fore.WHITE}   → Chave AES protegida com RSA")
-            print(f"{Fore.WHITE}   → Só {self.nome} conseguiu ler (chave privada)")
-            
-            print(f"\n{Fore.GREEN}2️⃣  Autenticidade ✅")
-            print(f"{Fore.WHITE}   → Assinatura digital VÁLIDA")
-            print(f"{Fore.WHITE}   → Mensagem foi enviada por {nome_remetente}")
-            print(f"{Fore.WHITE}   → Impossível falsificar (precisa chave privada de {nome_remetente})")
-            
-            print(f"\n{Fore.GREEN}3️⃣  Integridade ✅")
-            print(f"{Fore.WHITE}   → Hash SHA-256 corresponde")
-            print(f"{Fore.WHITE}   → Mensagem NÃO foi alterada")
-            print(f"{Fore.WHITE}   → Qualquer mudança seria detectada")
-            
             print(f"\n{Fore.CYAN}{'─'*70}")
             print(f"{Fore.CYAN}💬 MENSAGEM FINAL VERIFICADA:")
             print(f"{Fore.WHITE}   \"{mensagem_descriptografada}\"")
