@@ -12,7 +12,7 @@ from colorama import init, Fore, Style
 # Inicializa colorama para cores no terminal
 init(autoreset=True)
 
-class AutoridadeCertificadora:
+class CertificateAuthority:
     """Autoridade Certificadora (CA) - Emite e valida certificados"""
     
     def __init__(self):
@@ -28,6 +28,22 @@ class AutoridadeCertificadora:
         )
         self.chave_publica = self.chave_privada.public_key()
         print(f"{Fore.GREEN}✅ Par de chaves RSA da CA gerado com sucesso!")
+        
+        # Exibir chaves 
+        print(f"\n{Fore.CYAN}🔑 Chave Privada da CA (PEM):")
+        chave_privada_pem = self.chave_privada.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        print(f"{Fore.WHITE}{chave_privada_pem.decode()}")
+        
+        print(f"{Fore.CYAN}🔓 Chave Pública da CA (PEM):")
+        chave_publica_pem = self.chave_publica.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        print(f"{Fore.WHITE}{chave_publica_pem.decode()}")
         
     def emitir_certificado(self, nome, chave_publica_usuario):
         """Emite um certificado digital para um usuário"""
@@ -51,9 +67,9 @@ class AutoridadeCertificadora:
         ).serial_number(
             x509.random_serial_number()
         ).not_valid_before(
-            datetime.datetime.utcnow()
+            datetime.datetime.now(datetime.UTC)
         ).not_valid_after(
-            datetime.datetime.utcnow() + datetime.timedelta(days=365)
+            datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=365)
         ).sign(self.chave_privada, hashes.SHA256(), default_backend())
         
         print(f"{Fore.GREEN}✅ Certificado digital emitido para {nome}!")
@@ -74,8 +90,8 @@ class AutoridadeCertificadora:
             return False
 
 
-class Usuario:
-    """Classe base para Alice e Bob"""
+class User:
+    """Usuário do sistema de comunicação segura"""
     
     def __init__(self, nome, ca):
         self.nome = nome
@@ -95,6 +111,22 @@ class Usuario:
         self.chave_publica = self.chave_privada.public_key()
         print(f"{Fore.GREEN}✅ Par de chaves gerado!")
         
+        # Exibir chaves 
+        print(f"\n{Fore.CYAN}🔑 Chave Privada de {nome} (PEM):")
+        chave_privada_pem = self.chave_privada.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        print(f"{Fore.WHITE}{chave_privada_pem.decode()}")
+        
+        print(f"{Fore.CYAN}🔓 Chave Pública de {nome} (PEM):")
+        chave_publica_pem = self.chave_publica.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        print(f"{Fore.WHITE}{chave_publica_pem.decode()}")
+        
         # Solicita certificado à CA
         self.certificado = ca.emitir_certificado(nome, self.chave_publica)
         
@@ -103,27 +135,24 @@ class Usuario:
         digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
         digest.update(mensagem.encode())
         return digest.finalize()
-
-
-class Alice(Usuario):
-    """Alice - Remetente da mensagem"""
     
-    def enviar_mensagem(self, mensagem_texto, bob):
+    def enviar_mensagem(self, mensagem_texto, destinatario):
+        """Envia uma mensagem criptografada para outro usuário"""
         print(f"\n{Fore.YELLOW}{'='*70}")
-        print(f"{Fore.YELLOW}📤 FASE 1: ALICE ENVIA MENSAGEM")
+        print(f"{Fore.YELLOW}📤 FASE 1: {self.nome.upper()} ENVIA MENSAGEM")
         print(f"{Fore.YELLOW}{'='*70}")
         
         print(f"\n{Fore.WHITE}💬 Mensagem original: \"{mensagem_texto}\"")
         
-        # 1. Verificar o certificado de Bob
-        print(f"\n{Fore.CYAN}🔍 Passo 1: Verificando certificado de Bob...")
-        if not self.ca.verificar_certificado(bob.certificado):
-            print(f"{Fore.RED}❌ ERRO: Certificado de Bob inválido!")
+        # 1. Verificar o certificado do destinatário
+        print(f"\n{Fore.CYAN}🔍 Passo 1: Verificando certificado de {destinatario.nome}...")
+        if not self.ca.verificar_certificado(destinatario.certificado):
+            print(f"{Fore.RED}❌ ERRO: Certificado de {destinatario.nome} inválido!")
             return None
-        print(f"{Fore.GREEN}✅ Certificado de Bob verificado com sucesso!")
+        print(f"{Fore.GREEN}✅ Certificado de {destinatario.nome} verificado com sucesso!")
         
-        # Extrai a chave pública de Bob do certificado
-        chave_publica_bob = bob.certificado.public_key()
+        # Extrai a chave pública do destinatário do certificado
+        chave_publica_destinatario = destinatario.certificado.public_key()
         
         # 2. Gerar chave de sessão AES
         print(f"\n{Fore.CYAN}🔑 Passo 2: Gerando chave de sessão AES...")
@@ -148,9 +177,9 @@ class Alice(Usuario):
         mensagem_criptografada = encryptor.update(mensagem_padded) + encryptor.finalize()
         print(f"{Fore.GREEN}✅ Mensagem criptografada: {mensagem_criptografada.hex()[:40]}...")
         
-        # 4. Criptografar chave de sessão com RSA (chave pública de Bob)
+        # 4. Criptografar chave de sessão com RSA (chave pública do destinatário)
         print(f"\n{Fore.CYAN}🔐 Passo 4: Criptografando chave de sessão com RSA...")
-        chave_sessao_criptografada = chave_publica_bob.encrypt(
+        chave_sessao_criptografada = chave_publica_destinatario.encrypt(
             chave_sessao,
             padding.OAEP(
                 mgf=padding.MGF1(algorithm=hashes.SHA256()),
@@ -158,15 +187,15 @@ class Alice(Usuario):
                 label=None
             )
         )
-        print(f"{Fore.GREEN}✅ Chave de sessão criptografada com chave pública de Bob!")
+        print(f"{Fore.GREEN}✅ Chave de sessão criptografada com chave pública de {destinatario.nome}!")
         
         # 5. Calcular hash da mensagem original
         print(f"\n{Fore.CYAN}# Passo 5: Calculando hash SHA-256 da mensagem...")
         hash_mensagem = self.calcular_hash(mensagem_texto)
         print(f"{Fore.GREEN}✅ Hash calculado: {hash_mensagem.hex()}")
         
-        # 6. Assinar o hash com chave privada de Alice
-        print(f"\n{Fore.CYAN}✍️  Passo 6: Assinando hash com chave privada de Alice...")
+        # 6. Assinar o hash com chave privada do remetente
+        print(f"\n{Fore.CYAN}✍️  Passo 6: Assinando hash com chave privada de {self.nome}...")
         assinatura = self.chave_privada.sign(
             hash_mensagem,
             padding.PSS(
@@ -192,32 +221,57 @@ class Alice(Usuario):
         print(f"{Fore.WHITE}   • Mensagem criptografada (AES)")
         print(f"{Fore.WHITE}   • Chave de sessão criptografada (RSA)")
         print(f"{Fore.WHITE}   • Assinatura digital")
-        print(f"{Fore.WHITE}   • Certificado de Alice")
+        print(f"{Fore.WHITE}   • Certificado de {self.nome}")
+        
+        # Exibir conteúdo do pacote
+        print(f"\n{Fore.CYAN}📋 Visualização do Pacote Montado:")
+        print(f"{Fore.YELLOW}{'─'*70}")
+        
+        print(f"\n{Fore.CYAN}🔒 Mensagem Criptografada (AES-CBC):")
+        print(f"{Fore.WHITE}   Tamanho: {len(mensagem_criptografada)} bytes")
+        print(f"{Fore.WHITE}   Hex: {mensagem_criptografada.hex()}")
+        
+        print(f"\n{Fore.CYAN}🎲 IV (Vetor de Inicialização):")
+        print(f"{Fore.WHITE}   Tamanho: {len(iv)} bytes")
+        print(f"{Fore.WHITE}   Hex: {iv.hex()}")
+        
+        print(f"\n{Fore.CYAN}🔐 Chave de Sessão Criptografada (RSA-OAEP):")
+        print(f"{Fore.WHITE}   Tamanho: {len(chave_sessao_criptografada)} bytes")
+        print(f"{Fore.WHITE}   Hex: {chave_sessao_criptografada.hex()}")
+        
+        print(f"\n{Fore.CYAN}✍️  Assinatura Digital (RSA-PSS):")
+        print(f"{Fore.WHITE}   Tamanho: {len(assinatura)} bytes")
+        print(f"{Fore.WHITE}   Hex: {assinatura.hex()}")
+        
+        print(f"\n{Fore.CYAN}📜 Certificado do Remetente ({self.nome}):")
+        certificado_pem = self.certificado.public_bytes(serialization.Encoding.PEM)
+        print(f"{Fore.WHITE}{certificado_pem.decode()}")
+        
+        print(f"{Fore.YELLOW}{'─'*70}")
         
         return pacote
 
-
-class Bob(Usuario):
-    """Bob - Destinatário da mensagem"""
-    
     def receber_mensagem(self, pacote):
+        """Recebe e descriptografa uma mensagem"""
         print(f"\n{Fore.YELLOW}{'='*70}")
-        print(f"{Fore.YELLOW}📥 FASE 2: BOB RECEBE MENSAGEM")
+        print(f"{Fore.YELLOW}📥 FASE 2: {self.nome.upper()} RECEBE MENSAGEM")
         print(f"{Fore.YELLOW}{'='*70}")
         
-        # 1. Verificar certificado de Alice
-        print(f"\n{Fore.CYAN}🔍 Passo 1: Verificando certificado de Alice...")
-        certificado_alice = pacote['certificado_remetente']
+        # 1. Verificar certificado do remetente
+        print(f"\n{Fore.CYAN}🔍 Passo 1: Verificando certificado do remetente...")
+        certificado_remetente = pacote['certificado_remetente']
         
-        if not self.ca.verificar_certificado(certificado_alice):
-            print(f"{Fore.RED}❌ ERRO: Certificado de Alice inválido!")
+        if not self.ca.verificar_certificado(certificado_remetente):
+            print(f"{Fore.RED}❌ ERRO: Certificado do remetente inválido!")
             return None
         
-        print(f"{Fore.GREEN}✅ Certificado de Alice verificado!")
-        chave_publica_alice = certificado_alice.public_key()
+        # Extrai o nome do remetente do certificado
+        nome_remetente = certificado_remetente.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+        print(f"{Fore.GREEN}✅ Certificado de {nome_remetente} verificado!")
+        chave_publica_remetente = certificado_remetente.public_key()
         
         # 2. Descriptografar chave de sessão
-        print(f"\n{Fore.CYAN}🔓 Passo 2: Descriptografando chave de sessão com chave privada de Bob...")
+        print(f"\n{Fore.CYAN}🔓 Passo 2: Descriptografando chave de sessão com chave privada de {self.nome}...")
         chave_sessao = self.chave_privada.decrypt(
             pacote['chave_sessao_criptografada'],
             padding.OAEP(
@@ -253,9 +307,9 @@ class Bob(Usuario):
         print(f"{Fore.WHITE}   Hash local: {hash_local.hex()}")
         
         # Verificar assinatura
-        print(f"{Fore.CYAN}   🔍 Verificando assinatura de Alice...")
+        print(f"{Fore.CYAN}   🔍 Verificando assinatura de {nome_remetente}...")
         try:
-            chave_publica_alice.verify(
+            chave_publica_remetente.verify(
                 pacote['assinatura'],
                 hash_local,
                 padding.PSS(
@@ -269,7 +323,7 @@ class Bob(Usuario):
             print(f"{Fore.GREEN}✅ VERIFICAÇÃO BEM-SUCEDIDA!")
             print(f"{Fore.GREEN}{'='*70}")
             print(f"{Fore.GREEN}✅ Confidencialidade: Mensagem protegida (AES/RSA)")
-            print(f"{Fore.GREEN}✅ Autenticidade: Mensagem veio de Alice (assinatura válida)")
+            print(f"{Fore.GREEN}✅ Autenticidade: Mensagem veio de {nome_remetente} (assinatura válida)")
             print(f"{Fore.GREEN}✅ Integridade: Mensagem não foi alterada (hash corresponde)")
             print(f"{Fore.WHITE}\n💬 Mensagem final: \"{mensagem_descriptografada}\"")
             
@@ -286,7 +340,7 @@ class Bob(Usuario):
 
 def main():
     print(f"\n{Fore.CYAN}{'='*70}")
-    print(f"{Fore.CYAN}🔐 SISTEMA DE COMUNICAÇÃO SEGURA - ALICE E BOB")
+    print(f"{Fore.CYAN}🔐 SISTEMA DE COMUNICAÇÃO SEGURA")
     print(f"{Fore.CYAN}{'='*70}")
     print(f"{Fore.WHITE}Implementa: Hash (SHA-256), AES, RSA, Assinatura e Certificado Digital")
     
@@ -296,11 +350,11 @@ def main():
     print(f"{Fore.YELLOW}{'='*70}")
     
     # Criar Autoridade Certificadora
-    ca = AutoridadeCertificadora()
+    ca = CertificateAuthority()
     
     # Criar Alice e Bob
-    alice = Alice("Alice", ca)
-    bob = Bob("Bob", ca)
+    alice = User("Alice", ca)
+    bob = User("Bob", ca)
     
     print(f"\n{Fore.GREEN}✅ Fase 0 concluída! Sistema preparado.")
     print(f"{Fore.WHITE}   • CA, Alice e Bob possuem seus pares de chaves RSA")
